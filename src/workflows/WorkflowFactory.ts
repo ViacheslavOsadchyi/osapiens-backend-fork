@@ -3,17 +3,12 @@ import * as yaml from 'js-yaml';
 import { DataSource } from 'typeorm';
 import { Workflow } from '../models/Workflow';
 import { Task } from '../models/Task';
-import {TaskStatus} from "../workers/taskRunner";
-
-export enum WorkflowStatus {
-    Initial = 'initial',
-    InProgress = 'in_progress',
-    Completed = 'completed',
-    Failed = 'failed'
-}
+import { TaskStatus } from '../enums/TaskStatus.enum';
+import { WorkflowStatus } from '../enums/WorkflowStatus.enum';
+import { TaskType } from '../enums/TaskType.enum';
 
 interface WorkflowStep {
-    taskType: string;
+    taskType: TaskType;
     stepNumber: number;
 }
 
@@ -32,7 +27,11 @@ export class WorkflowFactory {
      * @param geoJson - The geoJson data string for tasks (customize as needed).
      * @returns A promise that resolves to the created Workflow.
      */
-    async createWorkflowFromYAML(filePath: string, clientId: string, geoJson: string): Promise<Workflow> {
+    async createWorkflowFromYAML(
+        filePath: string,
+        clientId: string,
+        geoJson: string,
+    ): Promise<Workflow> {
         const fileContent = fs.readFileSync(filePath, 'utf8');
         const workflowDef = yaml.load(fileContent) as WorkflowDefinition;
         const workflowRepository = this.dataSource.getRepository(Workflow);
@@ -44,7 +43,7 @@ export class WorkflowFactory {
 
         const savedWorkflow = await workflowRepository.save(workflow);
 
-        const tasks: Task[] = workflowDef.steps.map(step => {
+        const tasks: Task[] = workflowDef.steps.map((step) => {
             const task = new Task();
             task.clientId = clientId;
             task.geoJson = geoJson;

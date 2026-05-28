@@ -1,16 +1,10 @@
 import { Repository } from 'typeorm';
 import { Task } from '../models/Task';
 import { getJobForTaskType } from '../jobs/JobFactory';
-import {WorkflowStatus} from "../workflows/WorkflowFactory";
-import {Workflow} from "../models/Workflow";
-import {Result} from "../models/Result";
-
-export enum TaskStatus {
-    Queued = 'queued',
-    InProgress = 'in_progress',
-    Completed = 'completed',
-    Failed = 'failed'
-}
+import { WorkflowStatus } from '../enums/WorkflowStatus.enum';
+import { TaskStatus } from '../enums/TaskStatus.enum';
+import { Workflow } from '../models/Workflow';
+import { Result } from '../models/Result';
 
 export class TaskRunner {
     constructor(
