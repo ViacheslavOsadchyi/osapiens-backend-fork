@@ -38,7 +38,7 @@ export async function taskWorker() {
                     try {
                         await taskRunner.run(claimedTask);
                     } catch (error) {
-                        console.error(`Task ${queuedTask.taskId} execution failed.`, error);
+                        console.error(`Task ${queuedTask.taskId} processing failed.`, error);
                     }
                 }
             } else {

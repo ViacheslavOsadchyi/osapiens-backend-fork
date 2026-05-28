@@ -6,6 +6,13 @@ import { Result } from '../models/Result';
 import { TaskStatus } from '../enums/TaskStatus.enum';
 import { WorkflowStatus } from '../enums/WorkflowStatus.enum';
 
+export class PersistenceError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = PersistenceError.name;
+    }
+}
+
 export class TaskRunner {
     constructor(private taskRepository: Repository<Task>) {}
 
@@ -19,37 +26,57 @@ export class TaskRunner {
 
             console.log(`Job ${task.taskType} for task ${task.taskId} completed successfully.`);
 
-            await this.taskRepository.manager.transaction(async manager => {
-                const taskRepository = manager.getRepository(Task);
-                const resultRepository = manager.getRepository(Result);
-                const workflowRepository = manager.getRepository(Workflow);
+            try {
+                await this.taskRepository.manager.transaction(async manager => {
+                    const taskRepository = manager.getRepository(Task);
+                    const resultRepository = manager.getRepository(Result);
+                    const workflowRepository = manager.getRepository(Workflow);
 
-                const result = new Result();
-                result.taskId = task.taskId!;
-                result.data = JSON.stringify(taskResult || {});
+                    const result = new Result();
+                    result.taskId = task.taskId!;
+                    result.data = JSON.stringify(taskResult || {});
 
-                const savedResult = await resultRepository.save(result);
+                    const savedResult = await resultRepository.save(result);
 
-                task.resultId = savedResult.resultId!;
-                task.status = TaskStatus.Completed;
-                task.progress = null;
+                    task.resultId = savedResult.resultId!;
+                    task.status = TaskStatus.Completed;
+                    task.progress = null;
 
-                await taskRepository.save(task);
-                await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
-            });
+                    await taskRepository.save(task);
+                    await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
+                });
+            } catch (error) {
+                if (error instanceof Error) {
+                    throw new PersistenceError(error.message);
+                }
+
+                throw new PersistenceError('A non-Error value was thrown');
+            }
         } catch (error) {
-            console.error(`Error running job ${task.taskType} for task ${task.taskId}:`, error);
+            if (error instanceof PersistenceError) {
+                console.error(`Failed to persist successful execution result for task ${task.taskId}.`, error);
+                // In production can be handled by PersistenceFailed state and specific retry behaviour
 
-            await this.taskRepository.manager.transaction(async manager => {
-                const taskRepository = manager.getRepository(Task);
-                const workflowRepository = manager.getRepository(Workflow);
+                throw error;
+            } else {
+                console.error(`Error running job ${task.taskType} for task ${task.taskId}:`, error);
+            }
 
-                task.status = TaskStatus.Failed;
-                task.progress = null;
+            try {
+                await this.taskRepository.manager.transaction(async manager => {
+                    const taskRepository = manager.getRepository(Task);
+                    const workflowRepository = manager.getRepository(Workflow);
 
-                await taskRepository.save(task);
-                await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
-            });
+                    task.status = TaskStatus.Failed;
+                    task.progress = null;
+
+                    await taskRepository.save(task);
+                    await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
+                });
+            } catch (error) {
+                console.error(`Failed to persist failure state of task ${task.taskId} processing.`, error);
+                // In production can be handled by PersistenceFailed state and specific retry behaviour
+            }
 
             throw error;
         }
