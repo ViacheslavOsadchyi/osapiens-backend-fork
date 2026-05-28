@@ -8,19 +8,41 @@ export async function taskWorker() {
     const taskRunner = new TaskRunner(taskRepository);
 
     while (true) {
-        const task = await taskRepository.findOne({
+        const queuedTask = await taskRepository.findOne({
             where: { status: TaskStatus.Queued },
             relations: ['workflow'], // Ensure workflow is loaded
         });
 
-        if (task) {
-            try {
-                await taskRunner.run(task);
-            } catch (error) {
-                console.error(
-                    'Task execution failed. Task status has already been updated by TaskRunner.',
-                );
-                console.error(error);
+        if (queuedTask) {
+            // Claim the task with an atomic conditional update.
+            // This keeps the worker SQLite-compatible
+            // For the databases that support SELECT FOR UPDATE / pessimistic locks I would use use a transaction around it
+            const claimResult = await taskRepository.update(
+                {
+                    taskId: queuedTask.taskId,
+                    status: TaskStatus.Queued,
+                },
+                {
+                    status: TaskStatus.InProgress,
+                    progress: 'starting job...',
+                },
+            );
+
+            if (claimResult.affected === 1) {
+                const claimedTask = await taskRepository.findOne({
+                    where: { taskId: queuedTask.taskId },
+                    relations: ['workflow'],
+                });
+
+                if (claimedTask) {
+                    try {
+                        await taskRunner.run(claimedTask);
+                    } catch (error) {
+                        console.error('Task execution failed.', error);
+                    }
+                }
+            } else {
+                console.info(`Task ${queuedTask.taskId} was claimed by another worker.`);
             }
         }
 
