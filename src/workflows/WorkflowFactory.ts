@@ -10,6 +10,7 @@ import { TaskType } from '../enums/TaskType.enum';
 interface WorkflowStep {
     taskType: TaskType;
     stepNumber: number;
+    dependsOn?: number[];
 }
 
 interface WorkflowDefinition {
@@ -34,28 +35,54 @@ export class WorkflowFactory {
     ): Promise<Workflow> {
         const fileContent = fs.readFileSync(filePath, 'utf8');
         const workflowDef = yaml.load(fileContent) as WorkflowDefinition;
-        const workflowRepository = this.dataSource.getRepository(Workflow);
-        const taskRepository = this.dataSource.getRepository(Task);
-        const workflow = new Workflow();
 
-        workflow.clientId = clientId;
-        workflow.status = WorkflowStatus.Initial;
+        return this.dataSource.manager.transaction(async manager => {
+            const workflowRepository = manager.getRepository(Workflow);
+            const taskRepository = manager.getRepository(Task);
 
-        const savedWorkflow = await workflowRepository.save(workflow);
+            const workflow = new Workflow();
+            workflow.clientId = clientId;
+            workflow.status = WorkflowStatus.Initial;
 
-        const tasks: Task[] = workflowDef.steps.map((step) => {
-            const task = new Task();
-            task.clientId = clientId;
-            task.geoJson = geoJson;
-            task.status = TaskStatus.Queued;
-            task.taskType = step.taskType;
-            task.stepNumber = step.stepNumber;
-            task.workflow = savedWorkflow;
-            return task;
+            const savedWorkflow = await workflowRepository.save(workflow);
+            const tasksByStepNumber = new Map<number, Task[]>();
+            const taskEntries: { step: WorkflowStep; task: Task }[] = [];
+
+            for (const step of workflowDef.steps) {
+                const task = new Task();
+
+                task.clientId = clientId;
+                task.geoJson = geoJson;
+                task.status = TaskStatus.Queued;
+                task.taskType = step.taskType;
+                task.stepNumber = step.stepNumber;
+                task.workflow = savedWorkflow;
+                task.dependencies = [];
+
+                taskEntries.push({ step, task });
+
+                const tasksForStep = tasksByStepNumber.get(step.stepNumber) || [];
+                tasksForStep.push(task);
+                tasksByStepNumber.set(step.stepNumber, tasksForStep);
+            }
+
+            for (const { step, task } of taskEntries) {
+                task.dependencies = (step.dependsOn || []).flatMap(dependencyStepNumber => {
+                    const dependencyTasks = tasksByStepNumber.get(dependencyStepNumber);
+
+                    if (!dependencyTasks) {
+                        throw new Error(
+                            `Unknown dependency step "${dependencyStepNumber}" for workflow step "${step.stepNumber}"`,
+                        );
+                    }
+
+                    return dependencyTasks;
+                });
+            }
+
+            await taskRepository.save(taskEntries.map(({ task }) => task));
+
+            return savedWorkflow;
         });
-
-        await taskRepository.save(tasks);
-
-        return savedWorkflow;
     }
 }

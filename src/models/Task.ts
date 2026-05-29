@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
 import { Workflow } from './Workflow';
 import { TaskStatus } from '../enums/TaskStatus.enum';
 import { TaskType } from '../enums/TaskType.enum';
@@ -34,4 +34,18 @@ export class Task {
 
     @Column({ type: 'datetime', nullable: true })
     claimedAt!: Date | null;
+
+    @ManyToMany(() => Task)
+    @JoinTable({
+        name: 'task_dependencies',
+        joinColumn: {
+            name: 'taskId',
+            referencedColumnName: 'taskId',
+        },
+        inverseJoinColumn: {
+            name: 'dependencyTaskId',
+            referencedColumnName: 'taskId',
+        },
+    })
+    dependencies!: Task[];
 }

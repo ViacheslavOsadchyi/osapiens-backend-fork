@@ -14,7 +14,7 @@ export async function taskWorker() {
     while (true) {
         const claimTimeoutDate = new Date(Date.now() - CLAIM_TIMEOUT_MS);
 
-        const claimableTask = await taskRepository.findOne({
+        const claimableTasks = await taskRepository.find({
             where: [
                 { status: TaskStatus.Queued },
                 {
@@ -22,8 +22,16 @@ export async function taskWorker() {
                     claimedAt: LessThan(claimTimeoutDate),
                 },
             ],
-            relations: ['workflow'],
+            relations: ['workflow', 'dependencies'],
         });
+
+        // Interdependent task handling is placed here and not in TaskRunner on purpose.
+        // The worker is responsible for orchestration and polling, while TaskRunner focuses on task execution.
+        const claimableTask = claimableTasks.find(task =>
+            task.dependencies.every(
+                dependency => dependency.status === TaskStatus.Completed,
+            ),
+        );
 
         if (claimableTask) {
             const claimedAt = new Date();
