@@ -3,8 +3,12 @@ import { Polygon } from 'geojson';
 import { Job } from './Job';
 import { Task } from '../models/Task';
 
+export type PolygonAreaJobResult = {
+    areaSquareMeters: number
+}
+
 export class PolygonAreaJob implements Job {
-    async run(task: Task): Promise<string> {
+    async run(task: Task): Promise<PolygonAreaJobResult> {
         console.log(`Running polygon area calculation for task ${task.taskId}...`);
         const geoJson = this.parseGeoJson(task);
         const areaSquareMeters = area(geoJson);
@@ -15,7 +19,7 @@ export class PolygonAreaJob implements Job {
 
         console.log(`The polygon area is ${areaSquareMeters} square meters.`);
 
-        return `${areaSquareMeters} square meters`;
+        return { areaSquareMeters }
     }
 
     private parseGeoJson(task: Task): Polygon {

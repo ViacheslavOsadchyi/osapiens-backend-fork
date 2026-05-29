@@ -20,9 +20,6 @@ export class Task {
     @Column({ nullable: true, type: 'text' })
     progress?: string | null;
 
-    @Column({ nullable: true })
-    resultId?: string;
-
     @Column()
     taskType!: TaskType;
 
@@ -34,6 +31,9 @@ export class Task {
 
     @Column({ type: 'datetime', nullable: true })
     claimedAt!: Date | null;
+
+    @Column({ type: 'text', nullable: true })
+    output!: string | null;
 
     @ManyToMany(() => Task)
     @JoinTable({

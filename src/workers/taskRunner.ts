@@ -2,7 +2,6 @@ import { Repository } from 'typeorm';
 import { Task } from '../models/Task';
 import { getJobForTaskType } from '../jobs/JobFactory';
 import { Workflow } from '../models/Workflow';
-import { Result } from '../models/Result';
 import { TaskStatus } from '../enums/TaskStatus.enum';
 import { WorkflowStatus } from '../enums/WorkflowStatus.enum';
 
@@ -29,16 +28,9 @@ export class TaskRunner {
             try {
                 await this.taskRepository.manager.transaction(async manager => {
                     const taskRepository = manager.getRepository(Task);
-                    const resultRepository = manager.getRepository(Result);
                     const workflowRepository = manager.getRepository(Workflow);
 
-                    const result = new Result();
-                    result.taskId = task.taskId!;
-                    result.data = JSON.stringify(taskResult || {});
-
-                    const savedResult = await resultRepository.save(result);
-
-                    task.resultId = savedResult.resultId!;
+                    task.output = taskResult === undefined ? null : JSON.stringify(taskResult);
                     task.status = TaskStatus.Completed;
                     task.claimedAt = null;
                     task.progress = null;
