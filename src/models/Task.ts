@@ -31,4 +31,7 @@ export class Task {
 
     @ManyToOne(() => Workflow, workflow => workflow.tasks)
     workflow!: Workflow;
+
+    @Column({ type: 'datetime', nullable: true })
+    claimedAt!: Date | null;
 }

@@ -40,6 +40,7 @@ export class TaskRunner {
 
                     task.resultId = savedResult.resultId!;
                     task.status = TaskStatus.Completed;
+                    task.claimedAt = null;
                     task.progress = null;
 
                     await taskRepository.save(task);
@@ -69,6 +70,7 @@ export class TaskRunner {
 
                     task.status = TaskStatus.Failed;
                     task.progress = null;
+                    task.claimedAt = null;
 
                     await taskRepository.save(task);
                     await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
