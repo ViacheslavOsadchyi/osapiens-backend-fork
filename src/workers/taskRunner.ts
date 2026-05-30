@@ -21,7 +21,8 @@ export class TaskRunner {
         try {
             console.log(`Starting job ${task.taskType} for task ${task.taskId}...`);
 
-            const taskResult = await job.run(task);
+            const dependencyOutputs = this.getDependencyOutputs(task);
+            const taskResult = await job.run(task, dependencyOutputs);
 
             console.log(`Job ${task.taskType} for task ${task.taskId} completed successfully.`);
 
@@ -115,5 +116,26 @@ export class TaskRunner {
         }
 
         await workflowRepository.save(currentWorkflow);
+    }
+
+    private getDependencyOutputs(task: Task): Record<string, unknown> {
+        return task.dependencies.reduce<Record<string, unknown>>((result, dependency) => {
+            result[dependency.taskId] = {
+                taskType: dependency.taskType,
+                output: dependency.output === null
+                    ? null
+                    : this.parseOutput(dependency.output),
+            };
+
+            return result;
+        }, {});
+    }
+
+    private parseOutput(output: string): unknown {
+        try {
+            return JSON.parse(output);
+        } catch {
+            return output;
+        }
     }
 }

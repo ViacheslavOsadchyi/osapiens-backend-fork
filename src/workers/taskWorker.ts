@@ -112,7 +112,7 @@ export async function taskWorker() {
             if (claimResult.affected === 1) {
                 const claimedTask = await taskRepository.findOne({
                     where: { taskId: claimableTask.taskId },
-                    relations: ['workflow'],
+                    relations: ['workflow', 'dependencies'],
                 });
 
                 if (claimedTask) {

@@ -24,7 +24,7 @@ const TERMINAL_TASK_STATUSES = [
 ];
 
 export class ReportGenerationJob implements Job {
-    async run(task: Task): Promise<ReportGenerationJobResult> {
+    async run(task: Task, dependencyOutputs?: Record<string, unknown>): Promise<ReportGenerationJobResult> {
         if (!task.workflow?.workflowId) {
             throw new Error(`Task ${task.taskId} is missing workflow relation`);
         }
