@@ -11,6 +11,7 @@ interface WorkflowStep {
     taskType: TaskType;
     stepNumber: number;
     dependsOn?: number[];
+    allowFailedDependencies?: boolean;
 }
 
 interface WorkflowDefinition {
@@ -58,6 +59,7 @@ export class WorkflowFactory {
                 task.stepNumber = step.stepNumber;
                 task.workflow = savedWorkflow;
                 task.dependencies = [];
+                task.allowFailedDependencies = step.allowFailedDependencies || false;
 
                 taskEntries.push({ step, task });
 

@@ -34,6 +34,7 @@ export class TaskRunner {
                     task.status = TaskStatus.Completed;
                     task.claimedAt = null;
                     task.progress = null;
+                    task.error = null;
 
                     await taskRepository.save(task);
                     await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
@@ -63,6 +64,9 @@ export class TaskRunner {
                     task.status = TaskStatus.Failed;
                     task.progress = null;
                     task.claimedAt = null;
+                    task.error = error instanceof Error
+                        ? error.message
+                        : 'A non-Error value was thrown';
 
                     await taskRepository.save(task);
                     await this.updateWorkflowStatus(task.workflow.workflowId, workflowRepository);
@@ -96,11 +100,13 @@ export class TaskRunner {
             task => task.status === TaskStatus.Completed,
         );
 
-        const anyFailed = currentWorkflow.tasks.some(
-            task => task.status === TaskStatus.Failed,
+        const anyFailedOrBlocked = currentWorkflow.tasks.some(
+            task =>
+                task.status === TaskStatus.Failed ||
+                task.status === TaskStatus.Blocked,
         );
 
-        if (anyFailed) {
+        if (anyFailedOrBlocked) {
             currentWorkflow.status = WorkflowStatus.Failed;
         } else if (allCompleted) {
             currentWorkflow.status = WorkflowStatus.Completed;

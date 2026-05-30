@@ -35,6 +35,12 @@ export class Task {
     @Column({ type: 'text', nullable: true })
     output!: string | null;
 
+    @Column({ type: 'text', nullable: true })
+    error!: string | null;
+
+    @Column({ default: false })
+    allowFailedDependencies!: boolean;
+
     @ManyToMany(() => Task)
     @JoinTable({
         name: 'task_dependencies',

@@ -7,6 +7,17 @@ import { TaskStatus } from '../enums/TaskStatus.enum';
 const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
 const WORKER_POLL_INTERVAL_MS = 5000;
 
+const TERMINAL_DEPENDENCY_STATUSES = [
+    TaskStatus.Completed,
+    TaskStatus.Failed,
+    TaskStatus.Blocked,
+];
+
+const BLOCKING_DEPENDENCY_STATUSES = [
+    TaskStatus.Failed,
+    TaskStatus.Blocked,
+];
+
 export async function taskWorker() {
     const taskRepository = AppDataSource.getRepository(Task);
     const taskRunner = new TaskRunner(taskRepository);
@@ -27,11 +38,50 @@ export async function taskWorker() {
 
         // Interdependent task handling is placed here and not in TaskRunner on purpose.
         // The worker is responsible for orchestration and polling, while TaskRunner focuses on task execution.
-        const claimableTask = claimableTasks.find(task =>
-            task.dependencies.every(
-                dependency => dependency.status === TaskStatus.Completed,
-            ),
-        );
+        let claimableTask: Task | undefined;
+
+        for (const task of claimableTasks) {
+            const blockingDependency = getBlockingDependency(task);
+
+            // Tasks with failed or blocked dependencies are transitioned to Blocked.
+            // This prevents workflows from remaining indefinitely in a non-terminal state
+            // when downstream tasks can no longer be executed.
+            if (blockingDependency && !task.allowFailedDependencies) {
+                await taskRepository
+                    .createQueryBuilder()
+                    .update(Task)
+                    .set({
+                        status: TaskStatus.Blocked,
+                        progress: null,
+                        claimedAt: null,
+                        error: `Task blocked because dependency ${blockingDependency.taskId} is ${blockingDependency.status}.`,
+                    })
+                    .where('taskId = :taskId', { taskId: task.taskId })
+                    .andWhere(
+                        '(status = :queuedStatus OR (status = :inProgressStatus AND claimedAt < :claimTimeoutDate))',
+                        {
+                            queuedStatus: TaskStatus.Queued,
+                            inProgressStatus: TaskStatus.InProgress,
+                            claimTimeoutDate,
+                        },
+                    )
+                    .execute();
+
+                continue;
+            }
+
+            // Some tasks (for example reporting or cleanup tasks) may be configured to run
+            // even when dependencies fail. Such tasks become runnable once all dependencies
+            // reach a terminal state.
+            const dependenciesSatisfied = task.allowFailedDependencies
+                ? areDependenciesTerminal(task)
+                : areDependenciesCompleted(task);
+
+            if (dependenciesSatisfied) {
+                claimableTask = task;
+                break;
+            }
+        }
 
         if (claimableTask) {
             const claimedAt = new Date();
@@ -79,4 +129,22 @@ export async function taskWorker() {
 
         await new Promise(resolve => setTimeout(resolve, WORKER_POLL_INTERVAL_MS));
     }
+}
+
+function areDependenciesCompleted(task: Task): boolean {
+    return task.dependencies.every(
+        dependency => dependency.status === TaskStatus.Completed,
+    );
+}
+
+function areDependenciesTerminal(task: Task): boolean {
+    return task.dependencies.every(
+        dependency => TERMINAL_DEPENDENCY_STATUSES.includes(dependency.status),
+    );
+}
+
+function getBlockingDependency(task: Task): Task | undefined {
+    return task.dependencies.find(
+        dependency => BLOCKING_DEPENDENCY_STATUSES.includes(dependency.status),
+    );
 }

@@ -7,4 +7,8 @@ steps:
     dependsOn: [1]
   - taskType: "notification"
     stepNumber: 3
-    dependsOn: [2]
+    dependsOn: [1, 2]
+  - taskType: "report_generation"
+    stepNumber: 4
+    dependsOn: [1, 2, 3]
+    allowFailedDependencies: true
