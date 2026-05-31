@@ -26,4 +26,32 @@ router.get(
     },
 );
 
+router.get(
+    '/:id/results',
+    async (req: Request<WorkflowParams>, res: Response): Promise<void> => {
+        const workflowResults = await workflowService.getWorkflowResults(req.params.id);
+
+        if (!workflowResults) {
+            res.status(404).json({
+                message: 'Workflow not found',
+            });
+            return;
+        }
+
+        if (workflowResults.finalResult === null) {
+            // 202 is used because the request is valid and the workflow exists,
+            // but asynchronous processing has not produced final results yet.
+            // This signals that the client may retry the request later, whereas 400 Bad Request is more likely to be treated as non-retriable.
+            res.status(202).json({
+                workflowId: workflowResults.workflowId,
+                status: workflowResults.status,
+                message: 'Workflow results are not available yet',
+            });
+            return;
+        }
+
+        res.json(workflowResults);
+    },
+);
+
 export default router;

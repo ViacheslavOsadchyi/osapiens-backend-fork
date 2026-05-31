@@ -10,6 +10,24 @@ export type WorkflowStatusDto = {
     totalTasks: number;
 };
 
+export type WorkflowTaskResultDto = {
+    taskId: string;
+    taskType: string;
+    status: TaskStatus;
+    output: unknown;
+    error: string | null;
+};
+
+export type WorkflowFinalResultDto = {
+    tasks: WorkflowTaskResultDto[];
+};
+
+export type WorkflowResultsDto = {
+    workflowId: string;
+    status: WorkflowStatus;
+    finalResult: WorkflowFinalResultDto | null;
+};
+
 export class WorkflowService {
     constructor(private readonly dataSource: DataSource) {}
 
@@ -37,5 +55,41 @@ export class WorkflowService {
             completedTasks,
             totalTasks: workflow.tasks.length,
         };
+    }
+
+    async getWorkflowResults(
+        workflowId: string,
+    ): Promise<WorkflowResultsDto | null> {
+        const workflowRepository = this.dataSource.getRepository(Workflow);
+
+        const workflow = await workflowRepository.findOne({
+            where: { workflowId },
+        });
+
+        if (!workflow) {
+            return null;
+        }
+
+        if (!workflow.finalResult) {
+            return {
+                workflowId: workflow.workflowId,
+                status: workflow.status,
+                finalResult: null,
+            };
+        }
+
+        return {
+            workflowId: workflow.workflowId,
+            status: workflow.status,
+            finalResult: this.parseFinalResult(workflow.finalResult),
+        };
+    }
+
+    private parseFinalResult(finalResult: string): WorkflowFinalResultDto {
+        try {
+            return JSON.parse(finalResult) as WorkflowFinalResultDto;
+        } catch {
+            return finalResult as unknown as WorkflowFinalResultDto;
+        }
     }
 }
