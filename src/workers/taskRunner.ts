@@ -97,6 +97,13 @@ export class TaskRunner {
             return;
         }
 
+        const allTerminal = currentWorkflow.tasks.every(
+            task =>
+                task.status === TaskStatus.Completed ||
+                task.status === TaskStatus.Failed ||
+                task.status === TaskStatus.Blocked,
+        );
+
         const allCompleted = currentWorkflow.tasks.every(
             task => task.status === TaskStatus.Completed,
         );
@@ -115,7 +122,27 @@ export class TaskRunner {
             currentWorkflow.status = WorkflowStatus.InProgress;
         }
 
+        if (allTerminal) {
+            currentWorkflow.finalResult = JSON.stringify(
+                this.buildFinalResult(currentWorkflow.tasks),
+            );
+        }
+
         await workflowRepository.save(currentWorkflow);
+    }
+
+    private buildFinalResult(tasks: Task[]): Record<string, unknown> {
+        return {
+            tasks: tasks.map(task => ({
+                taskId: task.taskId,
+                taskType: task.taskType,
+                status: task.status,
+                output: task.output === null
+                    ? null
+                    : this.parseOutput(task.output),
+                error: task.error,
+            })),
+        };
     }
 
     private getDependencyOutputs(task: Task): Record<string, unknown> {
