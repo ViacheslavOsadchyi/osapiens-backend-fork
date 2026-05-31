@@ -54,7 +54,7 @@ export async function taskWorker() {
                         status: TaskStatus.Blocked,
                         progress: null,
                         claimedAt: null,
-                        error: `Task blocked because dependency ${blockingDependency.taskId} is ${blockingDependency.status}.`,
+                        error: `Task blocked because dependency ${blockingDependency.taskId} is in ${blockingDependency.status} state.`,
                     })
                     .where('taskId = :taskId', { taskId: task.taskId })
                     .andWhere(
