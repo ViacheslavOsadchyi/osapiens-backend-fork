@@ -341,6 +341,7 @@ Implement an API endpoint to retrieve the final results of a completed workflow.
 
 - **URL:** `/workflows/:workflowId`
 - **Method:** `GET`
+- **curl:** `curl http://localhost:3000/workflows/<workflowId>`
 
 #### Response for existing workflow:
 
@@ -373,6 +374,7 @@ Implement an API endpoint to retrieve the final results of a completed workflow.
 
 - **URL:** `/workflows/:workflowId/results`
 - **Method:** `GET`
+- **curl:** `curl http://localhost:3000/workflows/<workflowId>/results`
 
 #### Response for a workflow that is still running:
 
