@@ -332,3 +332,130 @@ Implement an API endpoint to retrieve the final results of a completed workflow.
   - Document the API endpoints with request and response examples.
 
 ---
+
+## Testing New Features
+
+### Get Workflow Status
+
+#### Request:
+
+- **URL:** `/workflows/:workflowId`
+- **Method:** `GET`
+- **curl:** `curl http://localhost:3000/workflows/<workflowId>`
+
+#### Response for existing workflow:
+
+**status:** 200 OK
+
+```json
+{
+  "workflowId": "...",
+  "status": "in_progress",
+  "completedTasks": 2,
+  "totalTasks": 4
+}
+```
+
+#### Reponse for a workflow that does not exist:
+
+**status:** 404 Not Found
+
+```json
+{
+  "message": "Workflow not found"
+}
+```
+
+---
+
+### Get Workflow Results
+
+#### Request:
+
+- **URL:** `/workflows/:workflowId/results`
+- **Method:** `GET`
+- **curl:** `curl http://localhost:3000/workflows/<workflowId>/results`
+
+#### Response for a workflow that is still running:
+
+**status:** 202 Accepted
+
+```json
+{
+  "workflowId": "...",
+  "status": "in_progress",
+  "message": "Workflow results are not available yet"
+}
+```
+
+#### Response for completed workflow:
+
+**status:** 200 OK
+
+```json
+{
+  "workflowId": "...",
+  "status": "completed",
+  "finalResult": {
+    "tasks": [
+        {
+            "taskId": "...",
+            "taskType": "polygon_area",
+            "status": "completed",
+            "output": {
+                "areaSquareMeters": 7864591293.340032
+            },
+            "error": null
+        },
+        {
+            "taskId": "...",
+            "taskType": "analysis",
+            "status": "completed",
+            "output": {
+                "country": "..."
+            },
+            "error": null
+        },
+        {
+            "taskId": "...",
+            "taskType": "notification",
+            "status": "completed",
+            "output": null,
+            "error": null
+        },
+    ]
+  }
+}
+```
+
+#### Response for a workflow that completed with failures:
+
+**status:** 200 OK
+
+```json
+{
+  "workflowId": "...",
+  "status": "failed",
+  "finalResult": {
+    "tasks": [
+      {
+        "taskId": "...",
+        "taskType": "polygon_area",
+        "status": "failed",
+        "output": null,
+        "error": "..."
+      }
+    ]
+  }
+}
+```
+
+#### Reponse for a workflow that is not found:
+
+**status:** 404 Not Found
+
+```json
+{
+  "message": "Workflow not found"
+}
+```
